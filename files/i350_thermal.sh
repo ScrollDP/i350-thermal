@@ -12,7 +12,7 @@ rcvar="i350_thermal_enable"
 pidfile="/var/run/${name}.pid"
 command="/usr/sbin/daemon"
 
-: ${i350_thermal_enable:=YES}
+: ${i350_thermal_enable:=NO}
 
 start_cmd="${name}_start"
 stop_cmd="${name}_stop"
