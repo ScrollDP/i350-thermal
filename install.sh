@@ -13,7 +13,7 @@ INSTALL="/usr/bin/install"
 
 READER="/usr/local/bin/i350-thermal"
 WORKER="/usr/local/sbin/i350_thermal_worker"
-RC_SCRIPT="/usr/local/etc/rc.d/i350_thermal"
+RC_SCRIPT="/usr/local/etc/rc.d/i350_thermal.sh"
 
 WIDGET_INC="/usr/local/www/widgets/include/i350_thermal.inc"
 WIDGET_JS="/usr/local/www/widgets/javascript/i350_thermal.js"
@@ -109,7 +109,7 @@ check_files()
     for file in \
         i350-thermal \
         i350_thermal_worker \
-        i350_thermal \
+        i350_thermal.sh \
         i350_thermal.inc \
         i350_thermal.js \
         i350_thermal.widget.php
@@ -201,7 +201,7 @@ stop_service()
     if [ -x "${RC_SCRIPT}" ]; then
         log "Existing rc.d script found."
 
-        "${RC_SCRIPT}" stop >> "${LOG_FILE}" 2>&1 || true
+        service i350_thermal stop >> "${LOG_FILE}" 2>&1 || true
 
         sleep 1
     else
@@ -211,26 +211,24 @@ stop_service()
     if [ -f "${PIDFILE}" ]; then
         pid="$(cat "${PIDFILE}" 2>/dev/null || true)"
 
-        if [ -n "${pid}" ]; then
-            if kill -0 "${pid}" 2>/dev/null; then
-                log "Stopping worker PID ${pid}."
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            log "Stopping worker PID ${pid}."
 
-                kill "${pid}" 2>/dev/null || true
+            kill "${pid}" 2>/dev/null || true
 
-                i=0
+            i=0
 
-                while kill -0 "${pid}" 2>/dev/null; do
-                    i=$((i + 1))
+            while kill -0 "${pid}" 2>/dev/null; do
+                i=$((i + 1))
 
-                    if [ "${i}" -ge 10 ]; then
-                        log "Worker did not stop; sending SIGKILL."
-                        kill -9 "${pid}" 2>/dev/null || true
-                        break
-                    fi
+                if [ "${i}" -ge 10 ]; then
+                    log "Worker did not stop; sending SIGKILL."
+                    kill -9 "${pid}" 2>/dev/null || true
+                    break
+                fi
 
-                    sleep 1
-                done
-            fi
+                sleep 1
+            done
         fi
 
         rm -f "${PIDFILE}"
@@ -249,11 +247,11 @@ start_service()
         return 1
     fi
 
-    "${RC_SCRIPT}" start >> "${LOG_FILE}" 2>&1
+    service i350_thermal start >> "${LOG_FILE}" 2>&1
 
     sleep 1
 
-    if "${RC_SCRIPT}" status >> "${LOG_FILE}" 2>&1; then
+    if service i350_thermal status >> "${LOG_FILE}" 2>&1; then
         log "  [OK] i350_thermal started."
         return 0
     fi
@@ -315,7 +313,7 @@ install_files()
         755
 
     install_file \
-        "i350_thermal" \
+        "i350_thermal.sh" \
         "${RC_SCRIPT}" \
         755
 
@@ -420,7 +418,6 @@ remove_cache()
     fi
 }
 
-
 # ---------------------------------------------------------------------------
 # enable service
 # ---------------------------------------------------------------------------
@@ -429,13 +426,21 @@ configure_service()
 {
     log_section "Configuring service"
 
-    if ! sysrc i350_thermal_enable=YES >> "${LOG_FILE}" 2>&1; then
+    if ! /usr/sbin/sysrc i350_thermal_enable="YES" >> "${LOG_FILE}" 2>&1; then
         die "Failed to enable i350_thermal auto-start."
     fi
 
     log "  [OK] i350_thermal enabled for automatic startup."
 }
 
+disable_service()
+{
+    log_section "Disabling service"
+
+    /usr/sbin/sysrc -x i350_thermal_enable >> "${LOG_FILE}" 2>&1 || true
+
+    log "  [OK] i350_thermal auto-start disabled."
+}
 
 # ---------------------------------------------------------------------------
 # Installation
@@ -466,7 +471,7 @@ install()
     install_files
 
     set_config_defaults
-    
+
     configure_service
 
     remove_cache
@@ -502,10 +507,10 @@ uninstall()
 
     stop_service
 
-    if sysrc -x i350_thermal_enable >> "${LOG_FILE}" 2>&1; then
-        log "Removed i350_thermal auto-start configuration."
+    if /usr/sbin/sysrc -x i350_thermal_enable >> "${LOG_FILE}" 2>&1; then
+        log "Removed i350_thermal.sh auto-start configuration."
     else
-        log "Warning: failed to remove i350_thermal auto-start configuration."
+        log "Warning: failed to remove i350_thermal.sh auto-start configuration."
     fi
 
     log_section "Removing files"
@@ -570,7 +575,7 @@ status()
     check_pfsense
 
     if [ ! -x "${RC_SCRIPT}" ]; then
-        echo "i350_thermal is not installed."
+        echo "i350_thermal.sh is not installed."
         return 1
     fi
 
