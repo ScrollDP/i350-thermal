@@ -422,6 +422,22 @@ remove_cache()
 
 
 # ---------------------------------------------------------------------------
+# enable service
+# ---------------------------------------------------------------------------
+
+configure_service()
+{
+    log_section "Configuring service"
+
+    if ! sysrc i350_thermal_enable=YES >> "${LOG_FILE}" 2>&1; then
+        die "Failed to enable i350_thermal auto-start."
+    fi
+
+    log "  [OK] i350_thermal enabled for automatic startup."
+}
+
+
+# ---------------------------------------------------------------------------
 # Installation
 # ---------------------------------------------------------------------------
 
@@ -450,6 +466,8 @@ install()
     install_files
 
     set_config_defaults
+    
+    configure_service
 
     remove_cache
 
@@ -483,6 +501,12 @@ uninstall()
     log_section "Stopping existing service"
 
     stop_service
+
+    if sysrc -x i350_thermal_enable >> "${LOG_FILE}" 2>&1; then
+        log "Removed i350_thermal auto-start configuration."
+    else
+        log "Warning: failed to remove i350_thermal auto-start configuration."
+    fi
 
     log_section "Removing files"
 
